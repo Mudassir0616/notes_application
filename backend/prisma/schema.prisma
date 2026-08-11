@@ -47,6 +47,11 @@ model Note {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // How many chunk vectors this note currently has in Pinecone. Lets deletion
+  // address vectors by exact id instead of discovering them with a list call,
+  // which is eventually consistent and can miss a just-written vector.
+  chunkCount Int @default(0)
+
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   author User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
 

@@ -14,6 +14,8 @@ import jwt from "jsonwebtoken";
 
 import app from "../src/app.js";
 import prisma from "../src/lib/prisma.js";
+import { isPineconeConfigured } from "../src/lib/pinecone.js";
+import { deleteNoteVectors } from "../src/services/noteSearchService.js";
 
 const SEED_PASSWORD = "mumBai#64";
 
@@ -105,9 +107,20 @@ describe("tenant isolation and role permissions", () => {
 
     after(async () => {
         if (created.length) {
-            await prisma.note.deleteMany({
-                where: { id: { in: created.filter(Boolean) } },
-            });
+            const ids = created.filter(Boolean);
+
+            // Notes created here are indexed for search when Pinecone is
+            // configured, and Postgres has no cascade into it. Drop the vectors
+            // before the rows, or this teardown strands them.
+            if (isPineconeConfigured()) {
+                const rows = await prisma.note.findMany({ where: { id: { in: ids } } });
+
+                for (const note of rows) {
+                    await deleteNoteVectors(note).catch(() => {});
+                }
+            }
+
+            await prisma.note.deleteMany({ where: { id: { in: ids } } });
         }
 
         await prisma.$disconnect();

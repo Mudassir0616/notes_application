@@ -1,4 +1,6 @@
 import prisma from "../lib/prisma.js";
+import { isPineconeConfigured } from "../lib/pinecone.js";
+import { deleteNoteVectors, indexNoteSafely } from "../services/noteSearchService.js";
 
 export async function createNote(req, res) {
     try {
@@ -22,6 +24,10 @@ export async function createNote(req, res) {
                 authorId: req.user.id,
             },
         });
+
+        // Best-effort: a note that fails to embed is still created and listed,
+        // it just won't appear in semantic search until it is re-indexed.
+        await indexNoteSafely(note);
 
         return res.status(201).json(note);
     } catch (error) {
@@ -99,6 +105,12 @@ export async function updateNote(req, res) {
             },
         });
 
+        // Re-embed only when the text actually changed; a no-op edit shouldn't
+        // spend an embedding call.
+        if (note.title !== existingNote.title || note.content !== existingNote.content) {
+            await indexNoteSafely(note);
+        }
+
         return res.json(note);
     } catch (error) {
         console.error(error);
@@ -130,6 +142,22 @@ export async function deleteNote(req, res) {
             return res.status(404).json({
                 message: "Note not found or you do not have permission",
             });
+        }
+
+        // Vectors first, deliberately. Pinecone has no foreign key, so if this
+        // fails we abort with the note still present: the user retries and the
+        // content stays consistent. Deleting the row first would risk vectors
+        // outliving it, leaving deleted content retrievable through search.
+        if (isPineconeConfigured()) {
+            try {
+                await deleteNoteVectors(note);
+            } catch (error) {
+                console.error(`Failed to delete vectors for note ${note.id}:`, error.message);
+
+                return res.status(500).json({
+                    message: "Failed to delete note: its search entries could not be removed",
+                });
+            }
         }
 
         await prisma.note.delete({

@@ -21,6 +21,12 @@ export default function NotesPage() {
     const [editTitle, setEditTitle] = useState("");
     const [editContent, setEditContent] = useState("");
 
+    // Semantic search. `results` being non-null is what swaps the note list out
+    // for the result view.
+    const [query, setQuery] = useState("");
+    const [results, setResults] = useState(null);
+    const [searching, setSearching] = useState(false);
+
     // A 401 means the token expired or was revoked while the tab was open.
     const handleError = useCallback(
         (err) => {
@@ -76,6 +82,34 @@ export default function NotesPage() {
         } finally {
             setBusy(false);
         }
+    }
+
+    async function handleSearch(event) {
+        event.preventDefault();
+
+        const trimmed = query.trim();
+
+        if (!trimmed) return;
+
+        setSearching(true);
+        setError("");
+        setResults(null);
+
+        try {
+            const response = await api.searchNotes(trimmed);
+
+            setResults(response.results);
+        } catch (err) {
+            handleError(err);
+        } finally {
+            setSearching(false);
+        }
+    }
+
+    function clearSearch() {
+        setQuery("");
+        setResults(null);
+        setError("");
     }
 
     function startEditing(note) {
@@ -146,115 +180,161 @@ export default function NotesPage() {
                 </button>
             </div>
 
-            <form className="card stack" onSubmit={handleCreate}>
-                <h2>New note</h2>
-
+            <form className="search" onSubmit={handleSearch}>
                 <input
-                    placeholder="Title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    required
+                    placeholder="Search by meaning, not just keywords…"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
                 />
 
-                <textarea
-                    placeholder="Content"
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    required
-                />
+                <button type="submit" disabled={searching || !query.trim()}>
+                    {searching ? "…" : "Search"}
+                </button>
 
-                <div>
-                    <button type="submit" disabled={busy || !title.trim() || !content.trim()}>
-                        Add note
+                {results !== null && (
+                    <button type="button" className="secondary" onClick={clearSearch}>
+                        Clear
                     </button>
-                </div>
+                )}
             </form>
 
-            {error && (
-                <p className="error" style={{ marginTop: 20 }}>
-                    {error}
-                </p>
-            )}
+            {error && <p className="error">{error}</p>}
 
-            <div style={{ marginTop: 28 }}>
-                {loadingNotes ? (
-                    <p className="meta">Loading notes…</p>
-                ) : notes.length === 0 ? (
-                    <p className="empty">No notes in this tenant yet.</p>
-                ) : (
-                    notes.map((note) =>
-                        editingId === note.id ? (
-                            <form
-                                key={note.id}
-                                className="card stack note"
-                                onSubmit={(e) => handleUpdate(e, note.id)}
+            {results !== null ? (
+                <div style={{ marginTop: 20 }}>
+                    {results.length === 0 ? (
+                        <p className="empty">Nothing in this tenant matched.</p>
+                    ) : (
+                        results.map((row, index) => (
+                            <article
+                                key={row.chunkId || `${row.noteId}-${index}`}
+                                className="card note"
                             >
-                                <input
-                                    value={editTitle}
-                                    onChange={(e) => setEditTitle(e.target.value)}
-                                    required
-                                />
+                                <h3>{row.title}</h3>
 
-                                <textarea
-                                    value={editContent}
-                                    onChange={(e) => setEditContent(e.target.value)}
-                                    required
-                                />
+                                {row.chunk && <p>{row.chunk}</p>}
 
-                                <div className="row">
-                                    <button type="submit" disabled={busy}>
-                                        Save
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        className="secondary"
-                                        onClick={() => setEditingId(null)}
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </form>
-                        ) : (
-                            <article key={note.id} className="card note">
-                                <h3>{note.title}</h3>
-                                <p>{note.content}</p>
-
-                                <div
-                                    className="row"
-                                    style={{ marginTop: 12, justifyContent: "space-between" }}
-                                >
-                                    <span className="meta">
-                                        {note.author?.email}
-                                        {note.author?.id === user.id && " (you)"} ·{" "}
-                                        {new Date(note.createdAt).toLocaleDateString()}
-                                    </span>
-
-                                    {canModify(note, user) && (
-                                        <span className="row">
-                                            <button
-                                                className="secondary"
-                                                onClick={() => startEditing(note)}
-                                                disabled={busy}
-                                            >
-                                                Edit
-                                            </button>
-
-                                            <button
-                                                className="danger"
-                                                onClick={() => handleDelete(note.id)}
-                                                disabled={busy}
-                                            >
-                                                Delete
-                                            </button>
-                                        </span>
-                                    )}
-                                </div>
+                                <p className="meta" style={{ marginTop: 12 }}>
+                                    {row.authorEmail} · similarity{" "}
+                                    <span className="score">{row.score}</span>
+                                </p>
                             </article>
-                        ),
-                    )
-                )}
-            </div>
+                        ))
+                    )}
+                </div>
+            ) : (
+                <>
+                    <form className="card stack" onSubmit={handleCreate}>
+                        <h2>New note</h2>
+
+                        <input
+                            placeholder="Title"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            required
+                        />
+
+                        <textarea
+                            placeholder="Content"
+                            value={content}
+                            onChange={(e) => setContent(e.target.value)}
+                            required
+                        />
+
+                        <div>
+                            <button
+                                type="submit"
+                                disabled={busy || !title.trim() || !content.trim()}
+                            >
+                                Add note
+                            </button>
+                        </div>
+                    </form>
+
+                    <div style={{ marginTop: 28 }}>
+                        {loadingNotes ? (
+                            <p className="meta">Loading notes…</p>
+                        ) : notes.length === 0 ? (
+                            <p className="empty">No notes in this tenant yet.</p>
+                        ) : (
+                            notes.map((note) =>
+                                editingId === note.id ? (
+                                    <form
+                                        key={note.id}
+                                        className="card stack note"
+                                        onSubmit={(e) => handleUpdate(e, note.id)}
+                                    >
+                                        <input
+                                            value={editTitle}
+                                            onChange={(e) => setEditTitle(e.target.value)}
+                                            required
+                                        />
+
+                                        <textarea
+                                            value={editContent}
+                                            onChange={(e) => setEditContent(e.target.value)}
+                                            required
+                                        />
+
+                                        <div className="row">
+                                            <button type="submit" disabled={busy}>
+                                                Save
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                className="secondary"
+                                                onClick={() => setEditingId(null)}
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </form>
+                                ) : (
+                                    <article key={note.id} className="card note">
+                                        <h3>{note.title}</h3>
+                                        <p>{note.content}</p>
+
+                                        <div
+                                            className="row"
+                                            style={{
+                                                marginTop: 12,
+                                                justifyContent: "space-between",
+                                            }}
+                                        >
+                                            <span className="meta">
+                                                {note.author?.email}
+                                                {note.author?.id === user.id && " (you)"} ·{" "}
+                                                {new Date(note.createdAt).toLocaleDateString()}
+                                            </span>
+
+                                            {canModify(note, user) && (
+                                                <span className="row">
+                                                    <button
+                                                        className="secondary"
+                                                        onClick={() => startEditing(note)}
+                                                        disabled={busy}
+                                                    >
+                                                        Edit
+                                                    </button>
+
+                                                    <button
+                                                        className="danger"
+                                                        onClick={() => handleDelete(note.id)}
+                                                        disabled={busy}
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </span>
+                                            )}
+                                        </div>
+                                    </article>
+                                ),
+                            )
+                        )}
+                    </div>
+                </>
+            )}
         </main>
     );
 }

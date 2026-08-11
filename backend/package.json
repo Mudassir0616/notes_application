@@ -9,6 +9,8 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "test": "node --test tests/",
+    "pinecone:setup": "node scripts/setupPinecone.js",
+    "pinecone:prune": "node scripts/pruneOrphanVectors.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "prisma db seed"
@@ -17,6 +19,7 @@
     "seed": "node prisma/seed.js"
   },
   "dependencies": {
+    "@pinecone-database/pinecone": "^8.2.0",
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",

@@ -163,6 +163,20 @@ button.danger {
     color: var(--muted);
 }
 
+.search {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.search input {
+    flex: 1;
+}
+
+.score {
+    font-variant-numeric: tabular-nums;
+}
+
 .error {
     padding: 10px 12px;
     border: 1px solid var(--danger);

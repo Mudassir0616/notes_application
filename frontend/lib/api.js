@@ -77,4 +77,12 @@ export const api = {
         request(`/notes/${id}`, { method: "PUT", body: fields }),
 
     deleteNote: (id) => request(`/notes/${id}`, { method: "DELETE" }),
+
+    // Semantic search. The query is the only input; the tenant comes from the
+    // token on the server, so there is nothing here to scope client-side.
+    searchNotes: (query, limit) =>
+        request(
+            `/notes/search?q=${encodeURIComponent(query)}` +
+                (limit ? `&limit=${encodeURIComponent(limit)}` : ""),
+        ),
 };
