@@ -1,0 +1,186 @@
+:root {
+    --bg: #ffffff;
+    --panel: #ffffff;
+    --text: #1a1a1a;
+    --muted: #6b7280;
+    --border: #e2e5ea;
+    --accent: #1f6feb;
+    --danger: #b42318;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #14161a;
+        --panel: #1b1e24;
+        --text: #e8eaed;
+        --muted: #9aa1ac;
+        --border: #2c313a;
+        --accent: #58a6ff;
+        --danger: #f0806c;
+    }
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 32px 20px 64px;
+}
+
+h1 {
+    font-size: 20px;
+    margin: 0;
+}
+
+h2 {
+    font-size: 15px;
+    margin: 0 0 12px;
+}
+
+a {
+    color: var(--accent);
+}
+
+input,
+textarea,
+button {
+    font: inherit;
+    color: inherit;
+}
+
+input,
+textarea {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+
+input:focus,
+textarea:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+}
+
+textarea {
+    resize: vertical;
+    min-height: 72px;
+}
+
+button {
+    padding: 8px 14px;
+    background: var(--accent);
+    color: #fff;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+button.secondary {
+    background: transparent;
+    color: var(--muted);
+    border-color: var(--border);
+}
+
+button.danger {
+    background: transparent;
+    color: var(--danger);
+    border-color: var(--border);
+}
+
+.row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.stack {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding-bottom: 16px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+}
+
+.card {
+    padding: 16px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.note + .note {
+    margin-top: 10px;
+}
+
+.note h3 {
+    font-size: 15px;
+    margin: 0 0 6px;
+}
+
+.note p {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.meta {
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.tag {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    padding: 2px 6px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--muted);
+}
+
+.error {
+    padding: 10px 12px;
+    border: 1px solid var(--danger);
+    border-radius: 6px;
+    color: var(--danger);
+    font-size: 14px;
+}
+
+.empty {
+    padding: 32px;
+    text-align: center;
+    color: var(--muted);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+}
+
+.login {
+    max-width: 380px;
+    margin: 12vh auto;
+    padding: 0 20px;
+}
