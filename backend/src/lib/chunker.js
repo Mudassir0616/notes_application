@@ -95,3 +95,14 @@ export function chunkContent(content, { maxChars = MAX_CHARS, overlap = OVERLAP_
 export function buildEmbeddingInput(title, chunk) {
     return `${title}\n\n${chunk}`;
 }
+
+/**
+ * Undoes `buildEmbeddingInput` for display. Retrieval returns the stored text,
+ * which carries the title on the front of every chunk; showing that next to the
+ * note's title — or feeding it to the model once per chunk — just repeats it.
+ */
+export function stripEmbeddingInput(title, text) {
+    const prefix = `${title}\n\n`;
+
+    return text.startsWith(prefix) ? text.slice(prefix.length) : text;
+}

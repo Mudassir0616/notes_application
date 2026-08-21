@@ -1,6 +1,8 @@
 import prisma from "../lib/prisma.js";
 import { isPineconeConfigured } from "../lib/pinecone.js";
 import { deleteNoteVectors, indexNoteSafely } from "../services/noteSearchService.js";
+import { enqueuePdfJob } from "../services/pdfJobService.js";
+
 
 export async function createNote(req, res) {
     try {
@@ -172,6 +174,49 @@ export async function deleteNote(req, res) {
 
         return res.status(500).json({
             message: "Failed to delete note",
+        });
+    }
+}
+
+/**
+ * POST /api/notes/pdf — accepts an upload and hands it to the worker.
+ *
+ * This used to extract text, run OCR and create the note inline, which meant a
+ * scanned document held the HTTP request open for minutes: the client saw a
+ * proxy timeout with no way to find out whether the work had actually finished,
+ * and a single upload occupied a request handler the whole time.
+ *
+ * Now the handler does only what is fast and only what needs the request: it
+ * copies the tenant and author off the verified JWT and writes one row. The
+ * answer is 202 Accepted — "this is real work, in progress, ask over there" —
+ * with a URL to poll, rather than 201 Created for a note that does not exist yet.
+ */
+export async function uploadPdf(req, res) {
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                message: "PDF file is required",
+            });
+        }
+
+        const job = await enqueuePdfJob({
+            // NEVER take these from req.body — same rule as createNote. The job
+            // row carries them forward to a worker that has no request at all.
+            tenantId: req.user.tenantId,
+            authorId: req.user.id,
+            file: req.file,
+        });
+
+        return res.status(202).json({
+            message: "PDF queued for processing",
+            job,
+            statusUrl: `/api/notes/pdf/jobs/${job.id}`,
+        });
+    } catch (error) {
+        console.error(error);
+
+        return res.status(500).json({
+            message: "Failed to queue PDF",
         });
     }
 }

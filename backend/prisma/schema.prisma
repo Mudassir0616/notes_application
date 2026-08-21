@@ -19,8 +19,9 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users User[]
-  notes Note[]
+  users   User[]
+  notes   Note[]
+  pdfJobs PdfJob[]
 }
 
 model User {
@@ -32,10 +33,16 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  notes  Note[]
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  notes   Note[]
+  pdfJobs PdfJob[]
 
   @@index([tenantId])
+}
+
+enum NoteSourceType {
+  MANUAL
+  PDF
 }
 
 model Note {
@@ -47,15 +54,93 @@ model Note {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  sourceType NoteSourceType @default(MANUAL)
+  sourceName String?
+
   // How many chunk vectors this note currently has in Pinecone. Lets deletion
   // address vectors by exact id instead of discovering them with a list call,
   // which is eventually consistent and can miss a just-written vector.
   chunkCount Int @default(0)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  author User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  author  User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  pdfJobs PdfJob[]
 
   @@index([tenantId])
   @@index([authorId])
   @@index([tenantId, authorId])
+}
+
+enum PdfJobStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+/// One queued PDF ingestion.
+///
+/// The queue is a Postgres table rather than Redis/SQS on purpose: the job's
+/// terminal state and the Note it produces must move together, and that is only
+/// free when both live in the same database (see pdfIngestService.js). It also
+/// keeps the dependency list unchanged.
+model PdfJob {
+  id     String       @id @default(uuid())
+  status PdfJobStatus @default(PENDING)
+
+  // Copied from the verified JWT at enqueue time and never re-read from a
+  // request afterwards. The worker runs with no request context of its own, so
+  // this row *is* the authority on who the resulting note belongs to.
+  tenantId String
+  authorId String
+
+  fileName String
+  fileSize Int
+
+  // The upload itself. Postgres is not where large blobs belong long-term, but
+  // it is what makes the worker a separate process with no shared disk, and it
+  // survives a restart. Cleared once the job reaches a terminal state so the
+  // table does not grow without bound. Uploads are capped at 10 MB by multer.
+  fileData Bytes?
+
+  attempts Int @default(0)
+
+  // Claim gate. A failed attempt pushes this into the future for backoff, so a
+  // retry does not spin immediately against whatever just broke.
+  runAfter DateTime @default(now()) @db.Timestamptz(3)
+
+  // Touched periodically while a worker holds the job. A RUNNING row whose
+  // heartbeat has gone stale belonged to a worker that died, and is reclaimable.
+  heartbeatAt DateTime? @db.Timestamptz(3)
+
+  // Result, set only on success.
+  noteId  String?
+  pages   Int?
+  usedOcr Boolean?
+
+  // Failure reason, surfaced to the client that polls the job.
+  error String?
+
+  // Every timestamp on this row is `timestamptz`, unlike the rest of the schema.
+  // These are the only ones both Prisma and hand-written SQL touch, and Prisma's
+  // default mapping is `timestamp without time zone`: Prisma writes UTC into it
+  // while Postgres converts anything from SQL to the server's local zone, so on
+  // a non-UTC database the two disagree by the offset. Storing an instant rather
+  // than a wall-clock reading makes the comparison mean the same thing to both.
+  startedAt  DateTime? @db.Timestamptz(3)
+  finishedAt DateTime? @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  // Deleting the produced note must not delete the record that it was ingested.
+  note Note? @relation(fields: [noteId], references: [id], onDelete: SetNull)
+
+  // The claim query's index: pending work, oldest eligible first.
+  @@index([status, runAfter])
+  @@index([tenantId, createdAt])
+  @@index([authorId])
+  @@index([noteId])
 }

@@ -8,6 +8,7 @@
     "postinstall": "prisma generate",
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
+    "worker": "node src/worker.js",
     "test": "node --test tests/",
     "pinecone:setup": "node scripts/setupPinecone.js",
     "pinecone:prune": "node scripts/pruneOrphanVectors.js",
@@ -19,6 +20,7 @@
     "seed": "node prisma/seed.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
     "@pinecone-database/pinecone": "^8.2.0",
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^3.0.3",
@@ -26,7 +28,14 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "prisma": "^5.22.0"
+    "multer": "^2.2.0",
+    "pdf-parse": "^2.4.5",
+    "pdf-to-img": "^6.2.0",
+    "prisma": "^5.22.0",
+    "tesseract.js": "^7.0.0"
+  },
+  "overrides": {
+    "pdfjs-dist": "5.4.296"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

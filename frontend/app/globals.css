@@ -177,6 +177,22 @@ button.danger {
     font-variant-numeric: tabular-nums;
 }
 
+.answer p {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.sources {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+
+.sources p + p {
+    margin: 4px 0 0;
+}
+
 .error {
     padding: 10px 12px;
     border: 1px solid var(--danger);
