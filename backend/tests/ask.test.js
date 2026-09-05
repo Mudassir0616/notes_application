@@ -1,7 +1,7 @@
 // Ask-your-notes tests (Pinecone retrieval + Claude generation).
 //
 // Needs PINECONE_API_KEY with the index created (`npm run pinecone:setup`) and
-// ANTHROPIC_API_KEY. Without them the suite skips with a reason rather than
+// KIMI_API_KEY. Without them the suite skips with a reason rather than
 // failing. Note that when it does run it makes real model calls, which cost
 // money — this suite is deliberately small for that reason.
 //
@@ -36,7 +36,7 @@ const GLOBEX_SECRET = {
 
 async function checkSetup() {
     if (!isPineconeConfigured()) return "PINECONE_API_KEY is not set";
-    if (!isAnswerConfigured()) return "ANTHROPIC_API_KEY is not set";
+    if (!isAnswerConfigured()) return "KIMI_API_KEY is not set";
 
     try {
         await getIndex().describeIndexStats();

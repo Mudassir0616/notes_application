@@ -1,5 +1,5 @@
 import { stripEmbeddingInput } from "../lib/chunker.js";
-import { AnswerRefusedError, ANSWER_MODEL, getAnthropic } from "../lib/anthropic.js";
+import { AnswerRefusedError, ANSWER_MODEL, getKimi } from "../lib/anthropic.js";
 import { searchNotes } from "./noteSearchService.js";
 
 /**
@@ -97,14 +97,6 @@ function renderContext(sources) {
     return { context: blocks.join("\n\n"), included: blocks.length };
 }
 
-function textOf(message) {
-    return message.content
-        .filter((block) => block.type === "text")
-        .map((block) => block.text)
-        .join("")
-        .trim();
-}
-
 /**
  * Answers a question from the caller's own notes.
  *
@@ -129,18 +121,16 @@ export async function answerFromNotes({ tenantId, question, limit = TOP_K }) {
     // A source the model was never shown must not be offered as a citation.
     const cited = sources.slice(0, included);
 
-    const response = await getAnthropic().messages.create({
+    // Kimi is OpenAI-compatible: chat.completions.create, system prompt as the
+    // first message, answer at choices[0].message.content.
+    const response = await getKimi().chat.completions.create({
         model: ANSWER_MODEL,
         max_tokens: 2048,
-        system: SYSTEM_PROMPT,
-        // Stated explicitly rather than left to the model default: on Opus 5
-        // thinking is on unless disabled, but on Opus 4.8 and 4.7 omitting it
-        // means no thinking at all, and ANTHROPIC_MODEL is configurable.
-        thinking: { type: "adaptive" },
-        // Deciding whether the excerpts actually answer the question is the
-        // part worth reasoning about; the answer itself is short.
-        output_config: { effort: "medium" },
         messages: [
+            {
+                role: "system",
+                content: SYSTEM_PROMPT,
+            },
             {
                 role: "user",
                 content: `Notes:\n\n${context}\n\nQuestion: ${question}`,
@@ -148,14 +138,16 @@ export async function answerFromNotes({ tenantId, question, limit = TOP_K }) {
         ],
     });
 
-    if (response.stop_reason === "refusal") {
+    const answer = response.choices?.[0]?.message?.content;
+
+    if (!answer) {
         throw new AnswerRefusedError(
-            `The model declined to answer (${response.stop_details?.category || "unspecified"}).`,
+            "The model returned an empty response.",
         );
     }
 
     return {
-        answer: textOf(response),
+        answer,
         sources: cited.map(({ chunks, ...source }) => source),
         grounded: true,
     };

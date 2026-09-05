@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
 import { indexName, isPineconeConfigured, SearchUnavailableError } from "../lib/pinecone.js";
 import { AnswerRefusedError, AnswerUnavailableError, isAnswerConfigured } from "../lib/anthropic.js";
@@ -43,7 +43,7 @@ function handleSearchError(error, res) {
     // generation half has its own set of causes.
     if (error instanceof AnswerUnavailableError) {
         return res.status(503).json({
-            message: "Answering is not available: ANTHROPIC_API_KEY is not configured.",
+            message: "Answering is not available: KIMI_API_KEY is not configured.",
         });
     }
 
@@ -51,17 +51,26 @@ function handleSearchError(error, res) {
         return res.status(502).json({ message: error.message });
     }
 
-    if (error instanceof Anthropic.AuthenticationError) {
+    if (error instanceof OpenAI.AuthenticationError) {
         return res.status(503).json({
-            message: "Answering is not available: ANTHROPIC_API_KEY was rejected.",
+            message: "Answering is not available: KIMI_API_KEY was rejected.",
         });
     }
 
-    if (error instanceof Anthropic.RateLimitError) {
+    // Moonshot returns 429 both for genuine rate limiting and for a suspended
+    // account. Only the first is worth retrying, so don't tell the caller to
+    // wait out a billing problem.
+    if (error instanceof OpenAI.RateLimitError) {
+        if (error.type === "exceeded_current_quota_error") {
+            return res.status(503).json({
+                message: "Answering is not available: the model provider account is out of credit.",
+            });
+        }
+
         return res.status(429).json({ message: "Rate limited by the model provider. Try again shortly." });
     }
 
-    if (error instanceof Anthropic.APIError) {
+    if (error instanceof OpenAI.APIError) {
         return res.status(502).json({ message: "The model provider returned an error." });
     }
 
@@ -159,7 +168,7 @@ export async function ask(req, res) {
 
         if (!isAnswerConfigured()) {
             return res.status(503).json({
-                message: "Answering is not available: ANTHROPIC_API_KEY is not configured.",
+                message: "Answering is not available: KIMI_API_KEY is not configured.",
             });
         }
 
