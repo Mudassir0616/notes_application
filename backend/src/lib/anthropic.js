@@ -12,7 +12,16 @@ import OpenAI from "openai";
 // call site uses `chat.completions.create` — not Anthropic's `messages.create`.
 // The Anthropic client is kept here for the eventual switch back.
 
-export const ANSWER_MODEL = process.env.KIMI_MODEL || "kimi-k2.5";
+// Kimi Code and the Kimi Open Platform are separate systems with separate
+// accounts, keys and hosts; a key from one is rejected 401 by the other. These
+// default to Kimi Code (console at kimi.ai/code, keys `sk-ki...`). For an Open
+// Platform key, set KIMI_BASE_URL=https://api.moonshot.ai/v1 and a model it
+// serves, such as kimi-k2.5.
+export const KIMI_BASE_URL =
+    process.env.KIMI_BASE_URL || "https://api.kimi.ai/coding/v1";
+
+/** `k3` needs a Moderato plan or higher; `kimi-for-coding` is on every plan. */
+export const ANSWER_MODEL = process.env.KIMI_MODEL || "k3";
 
 export const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
 
@@ -57,7 +66,7 @@ export function getKimi() {
     if (!kimiClient) {
         kimiClient = new OpenAI({
             apiKey: process.env.KIMI_API_KEY,
-            baseURL: "https://api.moonshot.ai/v1",
+            baseURL: KIMI_BASE_URL,
         });
     }
 
