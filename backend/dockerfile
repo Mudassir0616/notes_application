@@ -1,0 +1,17 @@
+FROM node:20-bookworm-slim
+
+# Prisma needs openssl; slim images don't ship it
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends openssl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# prisma/ must exist BEFORE npm install, because the install runs `prisma generate`
+COPY package*.json ./
+COPY prisma ./prisma
+RUN npm install
+
+COPY . .
+EXPOSE 8000
+CMD ["npm", "run", "dev"]
